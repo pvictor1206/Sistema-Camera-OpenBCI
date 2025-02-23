@@ -129,11 +129,11 @@ class OpenBCIWebcamApp:
                     # Calcular valores médios para exibição
                     avg_signals = np.mean(eeg_data, axis=1)
 
-                    # Obter timestamp
-                    timestamp = time.time()
+                    # Obter timestamp formatado
+                    timestamp = time.strftime('%H:%M:%S')
 
                     # Atualizar a interface gráfica
-                    self.text_output.insert(tk.END, f"\nTempo: {time.strftime('%H:%M:%S')}\n")
+                    self.text_output.insert(tk.END, f"\nTempo: {timestamp}\n")
                     for i, signal in enumerate(avg_signals, start=1):
                         self.text_output.insert(tk.END, f"Canal {i}: {signal:.5f} µV\n")
                     self.text_output.see(tk.END)
