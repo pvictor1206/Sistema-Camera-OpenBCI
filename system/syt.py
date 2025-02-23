@@ -101,14 +101,21 @@ class OpenBCIWebcamApp:
         ret, frame = self.cap.read()
         if ret:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(frame)
+
+            # Adiciona o tempo ao frame
+            timestamp_text = time.strftime('%H:%M:%S')
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            cv2.putText(frame_bgr, timestamp_text, (10, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+            img = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
             imgtk = ImageTk.PhotoImage(image=img)
             self.cam_label.imgtk = imgtk
             self.cam_label.configure(image=imgtk)
 
             # Salvar frame no vídeo se a gravação estiver ativa
             if self.running and self.video_writer is not None:
-                self.video_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Salva o frame no vídeo
+                self.video_writer.write(frame_bgr)
         
         self.root.after(10, self.update_camera)
 
