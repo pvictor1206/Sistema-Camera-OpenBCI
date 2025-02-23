@@ -43,8 +43,9 @@ class OpenBCIWebcamApp:
         self.quit_btn = ttk.Button(self.btn_frame, text="Sair", command=self.on_close)
         self.quit_btn.pack(pady=5)
         
-        # Inicialização da Câmera
+        # Inicialização da Câmera e Gravação de Vídeo
         self.cap = cv2.VideoCapture(0)
+        self.video_writer = None  # Inicialmente não há gravação de vídeo
         self.running = False
         self.update_camera()
         
@@ -55,7 +56,7 @@ class OpenBCIWebcamApp:
         # Criar arquivo CSV para salvar os dados
         self.csv_file = open("eeg_data.csv", "w", newline="")
         self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["Tempo", "Canal 1", "Canal 2", "Canal 3", "Canal 4", 
+        self.csv_writer.writerow(["Tempo", "Frame", "Canal 1", "Canal 2", "Canal 3", "Canal 4", 
                                   "Canal 5", "Canal 6", "Canal 7", "Canal 8"])
 
     def setup_openbci(self):
@@ -70,6 +71,7 @@ class OpenBCIWebcamApp:
             self.running = True
             self.board.prepare_session()
             self.board.start_stream()
+            self.start_video_recording()  # Iniciar a gravação da webcam
             self.update_openbci()  # Atualiza a cada 1 segundo
     
     def stop_stream(self):
@@ -77,8 +79,23 @@ class OpenBCIWebcamApp:
             self.running = False
             self.board.stop_stream()
             self.board.release_session()
+            self.stop_video_recording()  # Parar a gravação da webcam
             self.text_output.insert(tk.END, "Captura encerrada.\n")
             self.text_output.see(tk.END)
+
+    def start_video_recording(self):
+        """ Inicia a gravação do vídeo da webcam """
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Codec de vídeo
+        fps = 20  # Frames por segundo
+        frame_size = (int(self.cap.get(3)), int(self.cap.get(4)))  # Resolução da câmera
+        self.video_writer = cv2.VideoWriter("video.avi", fourcc, fps, frame_size)
+
+    def stop_video_recording(self):
+        """ Finaliza a gravação do vídeo """
+        if self.video_writer is not None:
+            self.video_writer.release()
+            self.video_writer = None
+            print("Vídeo salvo como video.avi")
 
     def update_camera(self):
         ret, frame = self.cap.read()
@@ -88,8 +105,13 @@ class OpenBCIWebcamApp:
             imgtk = ImageTk.PhotoImage(image=img)
             self.cam_label.imgtk = imgtk
             self.cam_label.configure(image=imgtk)
+
+            # Salvar frame no vídeo se a gravação estiver ativa
+            if self.running and self.video_writer is not None:
+                self.video_writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))  # Salva o frame no vídeo
+        
         self.root.after(10, self.update_camera)
-    
+
     def update_openbci(self):
         if self.running:
             try:
@@ -100,20 +122,24 @@ class OpenBCIWebcamApp:
                     # Calcular valores médios para exibição
                     avg_signals = np.mean(eeg_data, axis=1)
 
+                    # Obter timestamp
+                    timestamp = time.time()
+
                     # Atualizar a interface gráfica
                     self.text_output.insert(tk.END, f"\nTempo: {time.strftime('%H:%M:%S')}\n")
                     for i, signal in enumerate(avg_signals, start=1):
                         self.text_output.insert(tk.END, f"Canal {i}: {signal:.5f} µV\n")
                     self.text_output.see(tk.END)
 
-                    # Salvar os dados no CSV
-                    row_data = [time.time()] + avg_signals.tolist()
+                    # Salvar os dados no CSV com referência ao frame
+                    frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
+                    row_data = [timestamp, frame_number] + avg_signals.tolist()
                     self.csv_writer.writerow(row_data)
 
                 self.root.after(1000, self.update_openbci)  # Atualiza a cada 1 segundo
             except Exception as e:
                 self.text_output.insert(tk.END, f"Erro ao obter dados: {e}\n")
-    
+
     def on_close(self):
         """ Fecha a aplicação corretamente """
         self.running = False  # Para os loops de atualização
@@ -132,6 +158,9 @@ class OpenBCIWebcamApp:
         except Exception as e:
             print(f"Erro ao fechar arquivo CSV: {e}")
 
+        # Parar gravação de vídeo
+        self.stop_video_recording()
+
         # Liberar a câmera corretamente
         try:
             if self.cap.isOpened():
@@ -139,11 +168,10 @@ class OpenBCIWebcamApp:
         except Exception as e:
             print(f"Erro ao liberar câmera: {e}")
 
-        # Fechar a janela do Tkinter e encerrar a aplicação
-        self.root.quit()  # Fecha o loop do Tkinter
-        self.root.destroy()  # Libera todos os recursos gráficos
+        # Fechar a janela do Tkinter
+        self.root.quit()
+        self.root.destroy()
         print("Aplicação encerrada com sucesso.")
-
 
 if __name__ == "__main__":
     root = tk.Tk()
