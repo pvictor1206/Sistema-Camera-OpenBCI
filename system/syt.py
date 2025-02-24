@@ -10,6 +10,9 @@ import numpy as np
 import time
 import sys  # Para forçar saída do programa
 
+# Importe a função que inicia o servidor Flask
+from server import run_server
+
 
 class OpenBCIWebcamApp:
     def __init__(self, root):
@@ -81,13 +84,18 @@ class OpenBCIWebcamApp:
         params = BrainFlowInputParams()
         params.ip_address = "127.0.0.1"
         params.ip_port = 6677
-        params.streaming_board = -1
+
+        # Definir o board_id manualmente como -1 para streaming
+        board_id = -1  # STREAMING_BOARD equivalente
+
         try:
-            self.board = BoardShim(-1, params)
+            self.board = BoardShim(board_id, params)
             print("✅ OpenBCI configurado com sucesso!")
         except Exception as e:
             print(f"❌ Erro ao configurar OpenBCI: {e}")
 
+
+        
     def start_stream(self):
         if not self.running and self.board:
             self.running = True
@@ -144,28 +152,72 @@ class OpenBCIWebcamApp:
         """ Captura os dados do OpenBCI e atualiza a interface """
         if self.running and self.board:
             try:
+                
                 data = self.board.get_board_data()
-                if data.shape[1] > 0:
-                    eeg_data = data[1:9, :]
-                    sampling_rate = BoardShim.get_sampling_rate(-1)
-                    bands = DataFilter.get_avg_band_powers(eeg_data, sampling_rate, True)
-                    delta, theta, alpha, beta, gamma = bands[0]
+                
+                if data is None or data.shape[1] == 0:
+                    self.text_output.insert(tk.END, "⚠️ Nenhum dado recebido do OpenBCI\n")
+                    return  # Sai da função para evitar erro
 
-                    timestamp = time.strftime('%H:%M:%S')
+                eeg_data = data[1:9, :]  # Pegando os 8 primeiros canais de EEG
+                
+                # Verifica se eeg_data é válido
+                if eeg_data is None or eeg_data.shape[1] == 0:
+                    self.text_output.insert(tk.END, "⚠️ Dados EEG vazios, aguardando...\n")
+                    return
 
-                    self.text_output.insert(tk.END, f"\nTempo: {timestamp}\n")
-                    self.text_output.insert(tk.END, f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n")
-                    self.text_output.see(tk.END)
+                # Obter a taxa de amostragem do OpenBCI
+                board_id = self.board.get_board_id()  # Obtém o board_id correto
+                sampling_rate = BoardShim.get_sampling_rate(board_id)
 
-                    focus_level = beta / max((alpha + theta + delta), 1e-6)
-                    self.update_focus_widget(focus_level)
+                # Verifica se a taxa de amostragem é um valor válido
+                if not isinstance(sampling_rate, int) or sampling_rate <= 0:
+                    self.text_output.insert(tk.END, "⚠️ Taxa de amostragem inválida\n")
+                    return
+                
+                if not isinstance(band_powers, (list, np.ndarray)) or len(band_powers) < 2:
+                    self.text_output.insert(tk.END, "⚠️ Erro ao calcular bandas cerebrais, formato inesperado\n")
+                    return
+                
+                # Aplicando a filtragem de banda e cálculo das bandas cerebrais corretamente
+                band_powers = DataFilter.get_avg_band_powers(eeg_data, sampling_rate, True, True)
+                
+                # Garantindo que o retorno seja uma matriz e tenha o formato esperado
+                if not isinstance(band_powers, (list, np.ndarray)) or len(band_powers) < 2:
+                    self.text_output.insert(tk.END, "⚠️ Erro ao calcular bandas cerebrais, formato inesperado\n")
+                    return
 
-                    frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
-                    self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
+                bands = band_powers[0]  # Pegando apenas os valores médios das bandas
+                
+                # Se bands não for um array válido, saia
+                if not isinstance(bands, (list, np.ndarray)) or len(bands) < 5:
+                    self.text_output.insert(tk.END, "⚠️ Erro ao extrair bandas cerebrais\n")
+                    return
+                
+                # Pegando os valores das bandas
+                delta, theta, alpha, beta, gamma = bands[:5]  # Garante que apenas os primeiros 5 valores são usados
 
-                self.root.after(1000, self.update_openbci)
+                timestamp = time.strftime('%H:%M:%S')
+
+                self.text_output.insert(tk.END, f"\nTempo: {timestamp}\n")
+                self.text_output.insert(
+                    tk.END, f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n"
+                )
+                self.text_output.see(tk.END)
+
+                # Calcula o nível de concentração
+                focus_level = beta / max((alpha + theta + delta), 1e-6)
+                self.update_focus_widget(focus_level)
+
+                frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
+                self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
+
+                self.root.after(1000, self.update_openbci)  # Atualiza a cada 1 segundo
             except Exception as e:
-                self.text_output.insert(tk.END, f"Erro ao obter dados: {e}\n")
+                self.text_output.insert(tk.END, f"⚠️ Erro ao obter dados: {e}\n")
+
+
+
 
     def on_close(self):
         self.running = False
@@ -177,6 +229,11 @@ class OpenBCIWebcamApp:
 
 
 if __name__ == "__main__":
+    # Inicia o servidor Flask em uma thread separada
+    flask_thread = threading.Thread(target=run_server)
+    flask_thread.setDaemon(True)  # Garante que a thread não impeça o fechamento do app
+    flask_thread.start()
+    
     root = tk.Tk()
     app = OpenBCIWebcamApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)

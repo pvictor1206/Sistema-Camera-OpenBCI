@@ -1,3 +1,4 @@
+# server.py
 from flask import Flask, jsonify
 from brainflow.board_shim import BoardShim, BrainFlowInputParams
 import numpy as np
@@ -37,12 +38,15 @@ def get_eeg_data():
             "status": "error",
             "message": str(e)
         }
-
     return jsonify(response)
 
 @app.route('/')
 def home():
     return "Servidor OpenBCI rodando. Acesse /data para ver os dados."
 
+def run_server():
+    # Desabilita o reloader para evitar que a thread seja iniciada duas vezes
+    app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
+
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    run_server()
