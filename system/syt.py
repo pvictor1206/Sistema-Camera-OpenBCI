@@ -4,6 +4,7 @@ import cv2
 import threading
 import csv
 from brainflow.board_shim import BoardShim, BrainFlowInputParams
+from brainflow.data_filter import DataFilter
 from PIL import Image, ImageTk
 import numpy as np
 import time
@@ -12,26 +13,40 @@ class OpenBCIWebcamApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Sistema OpenBCI + Webcam")
-        self.root.geometry("1000x600")
+        self.root.geometry("1100x650")
         
         # Frame do ICC (Sinais do OpenBCI)
         self.icc_frame = tk.Frame(root, width=600, height=400, bg='white')
         self.icc_frame.grid(row=0, column=0, rowspan=2, padx=10, pady=10)
-        
+
         # Widget de Texto para os sinais EEG
         self.text_output = tk.Text(self.icc_frame, height=20, width=70, wrap="word")
         self.text_output.pack(pady=10, padx=10)
         self.text_output.insert(tk.END, "Aguardando dados do OpenBCI...\n")
 
+        # Frame do Indicador de Concentração
+        self.focus_frame = tk.Frame(root, width=250, height=200, bg='lightgray')
+        self.focus_frame.grid(row=0, column=1, padx=10, pady=10)
+        
+        self.focus_label = tk.Label(self.focus_frame, text="Concentração", font=("Arial", 14, "bold"))
+        self.focus_label.pack()
+
+        self.focus_canvas = tk.Canvas(self.focus_frame, width=100, height=100, bg="white")
+        self.focus_canvas.pack()
+        self.focus_circle = self.focus_canvas.create_oval(10, 10, 90, 90, fill="blue")
+        
+        self.focus_text = tk.Label(self.focus_frame, text="Aguardando...", font=("Arial", 12))
+        self.focus_text.pack()
+
         # Frame da Câmera
         self.cam_frame = tk.Frame(root, width=250, height=200, bg='gray')
-        self.cam_frame.grid(row=0, column=1, padx=10, pady=10)
+        self.cam_frame.grid(row=1, column=1, padx=10, pady=10)
         self.cam_label = tk.Label(self.cam_frame)
         self.cam_label.pack()
         
         # Frame dos Botões
         self.btn_frame = tk.Frame(root, width=250, height=200, bg='lightgray')
-        self.btn_frame.grid(row=1, column=1, padx=10, pady=10)
+        self.btn_frame.grid(row=2, column=1, padx=10, pady=10)
         
         # Botões
         self.start_btn = ttk.Button(self.btn_frame, text="Iniciar", command=self.start_stream)
@@ -56,8 +71,7 @@ class OpenBCIWebcamApp:
         # Criar arquivo CSV para salvar os dados
         self.csv_file = open("eeg_data.csv", "w", newline="")
         self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["Tempo", "Frame", "Canal 1", "Canal 2", "Canal 3", "Canal 4", 
-                                  "Canal 5", "Canal 6", "Canal 7", "Canal 8"])
+        self.csv_writer.writerow(["Tempo", "Frame", "Delta", "Theta", "Alpha", "Beta", "Gamma", "Concentracao"])
 
     def setup_openbci(self):
         params = BrainFlowInputParams()
@@ -71,7 +85,7 @@ class OpenBCIWebcamApp:
             self.running = True
             self.board.prepare_session()
             self.board.start_stream()
-            self.start_video_recording()  # Iniciar a gravação da webcam
+            self.start_video_recording()
             self.update_openbci()  # Atualiza a cada 1 segundo
     
     def stop_stream(self):
@@ -79,7 +93,7 @@ class OpenBCIWebcamApp:
             self.running = False
             self.board.stop_stream()
             self.board.release_session()
-            self.stop_video_recording()  # Parar a gravação da webcam
+            self.stop_video_recording()
             self.text_output.insert(tk.END, "Captura encerrada.\n")
             self.text_output.see(tk.END)
 
@@ -118,34 +132,6 @@ class OpenBCIWebcamApp:
                 self.video_writer.write(frame_bgr)
         
         self.root.after(10, self.update_camera)
-
-    def update_openbci(self):
-        if self.running:
-            try:
-                data = self.board.get_board_data()
-                if data.shape[1] > 0:
-                    eeg_data = data[1:9, :]  # Pegando os 8 primeiros canais de EEG
-                    
-                    # Calcular valores médios para exibição
-                    avg_signals = np.mean(eeg_data, axis=1)
-
-                    # Obter timestamp formatado
-                    timestamp = time.strftime('%H:%M:%S')
-
-                    # Atualizar a interface gráfica
-                    self.text_output.insert(tk.END, f"\nTempo: {timestamp}\n")
-                    for i, signal in enumerate(avg_signals, start=1):
-                        self.text_output.insert(tk.END, f"Canal {i}: {signal:.5f} µV\n")
-                    self.text_output.see(tk.END)
-
-                    # Salvar os dados no CSV com referência ao frame
-                    frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
-                    row_data = [timestamp, frame_number] + avg_signals.tolist()
-                    self.csv_writer.writerow(row_data)
-
-                self.root.after(1000, self.update_openbci)  # Atualiza a cada 1 segundo
-            except Exception as e:
-                self.text_output.insert(tk.END, f"Erro ao obter dados: {e}\n")
 
     def on_close(self):
         """ Fecha a aplicação corretamente """
