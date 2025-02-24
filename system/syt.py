@@ -41,7 +41,7 @@ class OpenBCIWebcamApp:
         self.focus_frame = tk.Frame(self.main_frame, width=200, height=100, bg='lightgray', relief="ridge", bd=2)
         self.focus_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nw")
 
-        self.focus_label = tk.Label(self.focus_frame, text="Concentração", font=("Arial", 14, "bold"), bg="lightgray")
+        self.focus_label = tk.Label(self.focus_frame, text="Concentracao", font=("Arial", 14, "bold"), bg="lightgray")
         self.focus_label.pack()
 
         self.focus_canvas = tk.Canvas(self.focus_frame, width=100, height=100, bg="white")
@@ -69,6 +69,10 @@ class OpenBCIWebcamApp:
         self.cap = cv2.VideoCapture(0)
         self.video_writer = None
         self.running = False
+        
+        # Defina a variável de concentração
+        self.concentration = 0.0
+        
         self.update_camera()
 
         # **Configuração do OpenBCI**
@@ -117,7 +121,11 @@ class OpenBCIWebcamApp:
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             cv2.putText(frame_bgr, timestamp_text, (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            # Converte para imagem e atualiza o label
+            # Adiciona o valor da concentração abaixo do horário
+            conc_text = f"Concentracao: {self.concentration:.2f}"
+            cv2.putText(frame_bgr, conc_text, (10, 70),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # Converte para imagem e atualiza o label da câmera
             img = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
             imgtk = ImageTk.PhotoImage(image=img)
             self.cam_label.imgtk = imgtk
@@ -156,7 +164,7 @@ class OpenBCIWebcamApp:
                     tk.END, f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n"
                 )
                 self.text_output.see(tk.END)
-                # Calcula o nível de concentração (você pode ajustar a normalização conforme necessário)
+                # Calcula o nível de concentração (ajuste a fórmula conforme necessário)
                 focus_level = beta / max((alpha + theta + delta), 1e-6)
                 self.update_focus_widget(focus_level)
                 frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
@@ -170,8 +178,10 @@ class OpenBCIWebcamApp:
             self.root.after(1000, self.update_openbci)
 
     def update_focus_widget(self, focus_level):
-        # Atualiza o widget de concentração (valor entre 0 e 1)
+        # Atualiza o widget de concentração com o valor formatado (entre 0 e 1)
         self.focus_text.config(text=f"{focus_level:.2f}")
+        # Atualiza também a variável de instância usada na exibição na câmera
+        self.concentration = focus_level
 
     def on_close(self):
         self.running = False
