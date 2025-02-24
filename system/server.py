@@ -1,3 +1,4 @@
+# server.py
 from flask import Flask, jsonify
 from brainflow.board_shim import BoardShim, BrainFlowInputParams
 import numpy as np
@@ -10,7 +11,7 @@ params.serial_port = "COM3"      # Substitua "COM3" pela porta correta do seu di
 params.ip_address = "127.0.0.1"    # Se aplicável
 params.ip_port = 6677            # Se aplicável
 
-# Utilize o board_id correspondente ao seu dispositivo real (por exemplo, 0 para OpenBCI Cyton)
+# Utilize o board_id correspondente ao seu dispositivo real (ou -1 para simulação)
 board_id = -1
 board = BoardShim(board_id, params)
 board.prepare_session()
@@ -45,6 +46,7 @@ def home():
     return "Servidor OpenBCI rodando. Acesse /data para ver os dados."
 
 def run_server():
+    # Função para iniciar o servidor Flask
     app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
 
 if __name__ == '__main__':

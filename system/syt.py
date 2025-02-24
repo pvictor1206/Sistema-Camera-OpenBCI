@@ -73,59 +73,41 @@ class OpenBCIWebcamApp:
 
         # **Configuração do OpenBCI**
         self.board = None
-        self.setup_openbci()
 
         # **Criar arquivo CSV para salvar os dados**
         self.csv_file = open("eeg_data.csv", "w", newline="")
         self.csv_writer = csv.writer(self.csv_file)
         self.csv_writer.writerow(["Tempo", "Frame", "Delta", "Theta", "Alpha", "Beta", "Gamma", "Concentracao"])
 
-    def setup_openbci(self):
-        params = BrainFlowInputParams()
-        params.ip_address = "127.0.0.1"
-        params.ip_port = 6677
 
-        # Definir o board_id manualmente como -1 para streaming
-        board_id = -1  # STREAMING_BOARD equivalente
-
-        try:
-            self.board = BoardShim(board_id, params)
-            print("✅ OpenBCI configurado com sucesso!")
-        except Exception as e:
-            print(f"❌ Erro ao configurar OpenBCI: {e}")
-
-
-        
     def start_stream(self):
-        if not self.running and self.board:
+        if not self.running:
             self.running = True
-            self.board.prepare_session()
-            self.board.start_stream()
+            # Como os dados vêm do servidor, não precisamos preparar o board localmente.
             self.start_video_recording()
             self.update_openbci()
 
     def stop_stream(self):
-        if self.running and self.board:
+        if self.running:
             self.running = False
-            self.board.stop_stream()
-            self.board.release_session()
             self.stop_video_recording()
             self.text_output.insert(tk.END, "Captura encerrada.\n")
             self.text_output.see(tk.END)
 
     def start_video_recording(self):
-        """ Inicia a gravação do vídeo da webcam """
+        """Inicia a gravação do vídeo da webcam"""
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
         fps = 20
         frame_size = (int(self.cap.get(3)), int(self.cap.get(4)))
         self.video_writer = cv2.VideoWriter("video.avi", fourcc, fps, frame_size)
 
     def stop_video_recording(self):
-        """ Finaliza a gravação do vídeo """
+        """Finaliza a gravação do vídeo"""
         if self.video_writer:
             self.video_writer.release()
             self.video_writer = None
             print("📁 Vídeo salvo como video.avi")
+
 
     def update_camera(self):
         ret, frame = self.cap.read()
@@ -184,9 +166,9 @@ class OpenBCIWebcamApp:
             # Agenda a próxima atualização após 1 segundo
             self.root.after(1000, self.update_openbci)
 
-
-
-
+    def update_focus_widget(self, focus_level):
+        # Atualiza o widget de concentração com o valor formatado (entre 0 e 1)
+        self.focus_text.config(text=f"{focus_level:.2f}")
 
     def on_close(self):
         self.running = False
@@ -202,7 +184,7 @@ if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_server)
     flask_thread.setDaemon(True)  # Garante que a thread não impeça o fechamento do app
     flask_thread.start()
-    
+
     root = tk.Tk()
     app = OpenBCIWebcamApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)
