@@ -149,72 +149,41 @@ class OpenBCIWebcamApp:
         self.root.after(10, self.update_camera)
 
     def update_openbci(self):
-        """ Captura os dados do OpenBCI e atualiza a interface """
-        if self.running and self.board:
+        """Busca os dados do servidor Flask e atualiza a interface"""
+        if self.running:
             try:
-                
-                data = self.board.get_board_data()
-                
-                if data is None or data.shape[1] == 0:
-                    self.text_output.insert(tk.END, "⚠️ Nenhum dado recebido do OpenBCI\n")
-                    return  # Sai da função para evitar erro
-
-                eeg_data = data[1:9, :]  # Pegando os 8 primeiros canais de EEG
-                
-                # Verifica se eeg_data é válido
-                if eeg_data is None or eeg_data.shape[1] == 0:
-                    self.text_output.insert(tk.END, "⚠️ Dados EEG vazios, aguardando...\n")
-                    return
-
-                # Obter a taxa de amostragem do OpenBCI
-                board_id = self.board.get_board_id()  # Obtém o board_id correto
-                sampling_rate = BoardShim.get_sampling_rate(board_id)
-
-                # Verifica se a taxa de amostragem é um valor válido
-                if not isinstance(sampling_rate, int) or sampling_rate <= 0:
-                    self.text_output.insert(tk.END, "⚠️ Taxa de amostragem inválida\n")
-                    return
-                
-                if not isinstance(band_powers, (list, np.ndarray)) or len(band_powers) < 2:
-                    self.text_output.insert(tk.END, "⚠️ Erro ao calcular bandas cerebrais, formato inesperado\n")
-                    return
-                
-                # Aplicando a filtragem de banda e cálculo das bandas cerebrais corretamente
-                band_powers = DataFilter.get_avg_band_powers(eeg_data, sampling_rate, True, True)
-                
-                # Garantindo que o retorno seja uma matriz e tenha o formato esperado
-                if not isinstance(band_powers, (list, np.ndarray)) or len(band_powers) < 2:
-                    self.text_output.insert(tk.END, "⚠️ Erro ao calcular bandas cerebrais, formato inesperado\n")
-                    return
-
-                bands = band_powers[0]  # Pegando apenas os valores médios das bandas
-                
-                # Se bands não for um array válido, saia
-                if not isinstance(bands, (list, np.ndarray)) or len(bands) < 5:
-                    self.text_output.insert(tk.END, "⚠️ Erro ao extrair bandas cerebrais\n")
-                    return
-                
-                # Pegando os valores das bandas
-                delta, theta, alpha, beta, gamma = bands[:5]  # Garante que apenas os primeiros 5 valores são usados
-
-                timestamp = time.strftime('%H:%M:%S')
-
-                self.text_output.insert(tk.END, f"\nTempo: {timestamp}\n")
-                self.text_output.insert(
-                    tk.END, f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n"
-                )
-                self.text_output.see(tk.END)
-
-                # Calcula o nível de concentração
-                focus_level = beta / max((alpha + theta + delta), 1e-6)
-                self.update_focus_widget(focus_level)
-
-                frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
-                self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
-
-                self.root.after(1000, self.update_openbci)  # Atualiza a cada 1 segundo
+                import requests  # Certifique-se de ter a biblioteca instalada (pip install requests)
+                response = requests.get("http://localhost:5000/data")
+                if response.status_code == 200:
+                    json_data = response.json()
+                    if json_data.get("status") == "success":
+                        avg_signal = json_data.get("data")
+                        if not avg_signal or len(avg_signal) < 5:
+                            self.text_output.insert(tk.END, "⚠️ Dados insuficientes no servidor\n")
+                        else:
+                            # Considera apenas os primeiros 5 valores, conforme a lógica original
+                            delta, theta, alpha, beta, gamma = avg_signal[:5]
+                            timestamp = time.strftime('%H:%M:%S')
+                            self.text_output.insert(tk.END, f"\nTempo: {timestamp}\n")
+                            self.text_output.insert(
+                                tk.END, f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n"
+                            )
+                            self.text_output.see(tk.END)
+                            # Calcula o nível de concentração
+                            focus_level = beta / max((alpha + theta + delta), 1e-6)
+                            self.update_focus_widget(focus_level)
+                            frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
+                            self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
+                    else:
+                        self.text_output.insert(tk.END, f"⚠️ Erro: {json_data.get('message', 'Erro desconhecido')}\n")
+                else:
+                    self.text_output.insert(tk.END, "⚠️ Não foi possível obter dados do servidor\n")
             except Exception as e:
-                self.text_output.insert(tk.END, f"⚠️ Erro ao obter dados: {e}\n")
+                self.text_output.insert(tk.END, f"⚠️ Erro ao obter dados do servidor: {e}\n")
+
+            # Agenda a próxima atualização após 1 segundo
+            self.root.after(1000, self.update_openbci)
+
 
 
 

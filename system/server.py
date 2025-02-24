@@ -1,17 +1,18 @@
-# server.py
 from flask import Flask, jsonify
 from brainflow.board_shim import BoardShim, BrainFlowInputParams
 import numpy as np
 
 app = Flask(__name__)
 
-# Configurar BrainFlow para capturar os dados
+# Configurar BrainFlow para capturar os dados de um dispositivo real
 params = BrainFlowInputParams()
-params.ip_address = "127.0.0.1"  # OpenBCI enviando para localhost
-params.ip_port = 6677  # Porta configurada no OpenBCI
-params.streaming_board = -1  # Capturar de um streamer
+params.serial_port = "COM3"      # Substitua "COM3" pela porta correta do seu dispositivo
+params.ip_address = "127.0.0.1"    # Se aplicável
+params.ip_port = 6677            # Se aplicável
 
-board = BoardShim(-1, params)
+# Utilize o board_id correspondente ao seu dispositivo real (por exemplo, 0 para OpenBCI Cyton)
+board_id = -1
+board = BoardShim(board_id, params)
 board.prepare_session()
 board.start_stream()
 
@@ -23,7 +24,6 @@ def get_eeg_data():
         if data.shape[1] > 0:
             eeg_data = data[1:9, :]  # Pegando os 8 primeiros canais de EEG
             avg_signal = np.mean(eeg_data, axis=1).tolist()  # Média por canal
-
             response = {
                 "status": "success",
                 "data": avg_signal  # Enviar os valores médios dos 8 canais
@@ -45,7 +45,6 @@ def home():
     return "Servidor OpenBCI rodando. Acesse /data para ver os dados."
 
 def run_server():
-    # Desabilita o reloader para evitar que a thread seja iniciada duas vezes
     app.run(debug=False, host="0.0.0.0", port=5000, use_reloader=False)
 
 if __name__ == '__main__':
