@@ -44,9 +44,9 @@ class OpenBCIWebcamApp:
         self.focus_label = tk.Label(self.focus_frame, text="Concentracao", font=("Arial", 14, "bold"), bg="lightgray")
         self.focus_label.pack()
 
-        self.focus_canvas = tk.Canvas(self.focus_frame, width=100, height=100, bg="white")
-        self.focus_canvas.pack()
-        self.focus_circle = self.focus_canvas.create_oval(10, 10, 90, 90, fill="blue")
+        #self.focus_canvas = tk.Canvas(self.focus_frame, width=100, height=100, bg="white")
+        #self.focus_canvas.pack()
+        #self.focus_circle = self.focus_canvas.create_oval(10, 10, 90, 90, fill="blue")
 
         self.focus_text = tk.Label(self.focus_frame, text="Aguardando...", font=("Arial", 12), bg="lightgray")
         self.focus_text.pack()
