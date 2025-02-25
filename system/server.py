@@ -10,7 +10,7 @@ def initialize_board():
     params = BrainFlowInputParams()
     params.serial_port = "COM4"      # Substitua pela porta correta do seu dispositivo
     # Para conexão via serial não são necessários ip_address/ip_port.
-    board_id = 0  # Para Cyton (8 canais), mesmo que use apenas 2 eletrodos.
+    board_id = -1  # 2 eletrodos.
     try:
         board = BoardShim(board_id, params)
         time.sleep(5)  # Aguarda o dispositivo inicializar
@@ -29,7 +29,6 @@ def get_eeg_data():
     """Captura dados do OpenBCI e retorna os valores das bandas (Delta, Theta, Alpha, Beta, Gamma) em formato JSON."""
     try:
         data = board.get_board_data()
-        # Para 2 canais, extraí os canais 1 e 2
         eeg_data = data[1:3, :]
         sampling_rate = BoardShim.get_sampling_rate(board.get_board_id())
         band_powers = DataFilter.get_avg_band_powers(eeg_data, [0, 1], sampling_rate, True)
