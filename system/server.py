@@ -10,7 +10,7 @@ def initialize_board():
     params = BrainFlowInputParams()
     params.serial_port = "COM4"      # Substitua pela porta correta do seu dispositivo
     # Para conexão via serial não são necessários ip_address/ip_port.
-    board_id = -1  # Para Cyton (8 canais), mesmo que você use apenas 2 eletrodos.
+    board_id = 0  # Para Cyton (8 canais), mesmo que use apenas 2 eletrodos.
     try:
         board = BoardShim(board_id, params)
         time.sleep(5)  # Aguarda o dispositivo inicializar
@@ -20,11 +20,6 @@ def initialize_board():
         print("Board real inicializado com sucesso.")
     except Exception as e:
         print("Erro ao inicializar board real:", e)
-        #print("Caindo para modo simulado (board_id = -1)...")
-        #board = BoardShim(-1, params)
-        #board.prepare_session()
-        #board.start_stream()
-        #time.sleep(3)
     return board
 
 board = initialize_board()

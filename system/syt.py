@@ -41,10 +41,6 @@ class OpenBCIWebcamApp:
         self.focus_label = tk.Label(self.focus_frame, text="Concentracao", font=("Arial", 14, "bold"), bg="lightgray")
         self.focus_label.pack()
 
-        #self.focus_canvas = tk.Canvas(self.focus_frame, width=100, height=100, bg="white")
-        #self.focus_canvas.pack()
-        #self.focus_circle = self.focus_canvas.create_oval(10, 10, 90, 90, fill="blue")
-
         self.focus_text = tk.Label(self.focus_frame, text="Aguardando...", font=("Arial", 12), bg="lightgray")
         self.focus_text.pack()
 
@@ -62,14 +58,13 @@ class OpenBCIWebcamApp:
         self.cam_label = tk.Label(self.cam_frame)
         self.cam_label.pack()
 
-        # **Inicialização da Câmera e Gravação de Vídeo**
+        # **Inicialização da Câmera (sem gravação de vídeo)**
         self.cap = cv2.VideoCapture(0)
-        self.video_writer = None
         self.running = False
-        
+
         # Variável de concentração
         self.concentration = 0.0
-        
+
         self.update_camera()
 
         # **Configuração do OpenBCI** (dados vêm do servidor, então não usamos board localmente)
@@ -78,32 +73,20 @@ class OpenBCIWebcamApp:
         # **Criar arquivo CSV para salvar os dados** (2 canais)
         self.csv_file = open("eeg_data.csv", "w", newline="")
         self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["Tempo", "Frame", "Channel1", "Channel2", "Concentracao"])
+        # self.csv_writer.writerow(["Tempo", "Frame", "Channel1", "Channel2", "Concentracao"])
+        self.csv_writer.writerow(["Tempo", "Frame", "Delta", "Theta", "Alpha", "Beta", "Gamma", "Concentracao"])
 
     def start_stream(self):
         if not self.running:
             self.running = True
-            self.start_video_recording()
+            # Removemos a chamada para iniciar a gravação do vídeo
             self.update_openbci()
 
     def stop_stream(self):
         if self.running:
             self.running = False
-            self.stop_video_recording()
             self.text_output.insert(tk.END, "Captura encerrada.\n")
             self.text_output.see(tk.END)
-
-    def start_video_recording(self):
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        fps = 20
-        frame_size = (int(self.cap.get(3)), int(self.cap.get(4)))
-        self.video_writer = cv2.VideoWriter("video.avi", fourcc, fps, frame_size)
-
-    def stop_video_recording(self):
-        if self.video_writer:
-            self.video_writer.release()
-            self.video_writer = None
-            print("📁 Vídeo salvo como video.avi")
 
     def update_camera(self):
         ret, frame = self.cap.read()
@@ -120,8 +103,7 @@ class OpenBCIWebcamApp:
             imgtk = ImageTk.PhotoImage(image=img)
             self.cam_label.imgtk = imgtk
             self.cam_label.configure(image=imgtk)
-            if self.running and self.video_writer:
-                self.video_writer.write(frame_bgr)
+            # Aqui removemos a escrita em arquivo, pois não queremos gravar o vídeo
         self.root.after(33, self.update_camera)
 
     def fetch_openbci_data_thread(self):
@@ -139,7 +121,6 @@ class OpenBCIWebcamApp:
     def process_openbci_data(self, data):
         if data.get("status") == "success":
             bands = data.get("data")
-            # Verifica se 'bands' é um escalar ou se não tem pelo menos 5 elementos.
             if np.isscalar(bands) or not hasattr(bands, '__len__') or len(bands) < 5:
                 self.text_output.insert(tk.END, "⚠️ Dados insuficientes no servidor\n")
             else:
@@ -149,14 +130,15 @@ class OpenBCIWebcamApp:
                 self.text_output.insert(tk.END,
                     f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n")
                 self.text_output.see(tk.END)
-                # Exemplo de cálculo de concentração: beta / (alpha + theta + delta)
+                # Cálculo de concentração (exemplo)
                 focus_level = beta / max((alpha + theta + delta), 1e-6)
                 self.update_focus_widget(focus_level)
                 frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
+                #self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
                 self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
+
         else:
             self.text_output.insert(tk.END, f"⚠️ Erro: {data.get('message', 'Erro desconhecido')}\n")
-
 
     def update_openbci(self):
         if self.running:
