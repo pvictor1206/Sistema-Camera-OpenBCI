@@ -131,7 +131,10 @@ class OpenBCIWebcamApp:
                     f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n")
                 self.text_output.see(tk.END)
                 # Cálculo de concentração (exemplo)
-                focus_level = beta / max((alpha + theta + delta), 1e-6)
+                focus_level = beta / max((alpha + theta + delta), 1e-6) # ja pega a concentração 0-100 (atenção (focus) e a meditação.)
+                '''
+                    Pegar a meditação: tem um criterio (tipo, se alpha tiver acima da metade, beta acima da contração)
+                '''
                 self.update_focus_widget(focus_level)
                 frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
                 #self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
