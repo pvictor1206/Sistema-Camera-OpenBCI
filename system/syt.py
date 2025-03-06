@@ -140,8 +140,8 @@ class OpenBCIWebcamApp:
                 self.text_output.insert(tk.END, f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n")
                 self.text_output.see(tk.END)
 
-                self.concentration = beta / max((alpha + theta + delta), 1e-6)
-                self.relaxation = alpha / max((theta + delta), 1e-6)
+                self.concentration = beta / (alpha + theta + delta + beta + gamma)
+                self.relaxation = alpha / (alpha + theta + delta)
 
                 self.update_focus_widget()
                 self.csv_writer.writerow([timestamp, int(self.cap.get(cv2.CAP_PROP_POS_FRAMES)), delta, theta, alpha, beta, gamma, self.concentration, self.relaxation])
