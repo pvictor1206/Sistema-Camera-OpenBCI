@@ -145,8 +145,19 @@ class OpenBCIWebcamApp:
                 self.relaxation = alpha / (alpha + theta + delta)
 
                 self.update_focus_widget()
-                # Atualizei a ordem das colunas no CSV:
-                self.csv_writer.writerow([timestamp, self.concentration, self.relaxation, delta, theta, alpha, beta, gamma])
+                
+                # **Corrigido para escrever no CSV com apenas duas casas decimais**
+                self.csv_writer.writerow([
+                    timestamp,
+                    f"{self.concentration:.2f}",  # Formata concentração para 2 casas decimais
+                    f"{self.relaxation:.2f}",     # Formata relaxamento para 2 casas decimais
+                    f"{delta:.5f}",
+                    f"{theta:.5f}",
+                    f"{alpha:.5f}",
+                    f"{beta:.5f}",
+                    f"{gamma:.5f}"
+                ])
+
 
     def update_focus_widget(self):
         self.focus_text.config(text=f"Foco: {self.concentration:.2f} \nRelaxamento: {self.relaxation:.2f}")
