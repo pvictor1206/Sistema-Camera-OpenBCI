@@ -7,6 +7,7 @@ from PIL import Image, ImageTk
 import numpy as np
 import time
 import sys
+import pyautogui
 
 # Importe a função que inicia o servidor Flask
 from server import run_server
@@ -30,6 +31,9 @@ class OpenBCIWebcamApp:
 
         self.stop_btn = ttk.Button(self.btn_frame, text="Parar", command=self.stop_stream)
         self.stop_btn.pack(side="left", padx=5, pady=5)
+        
+        self.record_btn = ttk.Button(self.btn_frame, text="Gravar Tela", command=self.toggle_screen_recording)
+        self.record_btn.pack(side="left", padx=5, pady=5)
 
         self.quit_btn = ttk.Button(self.btn_frame, text="Sair", command=self.on_close)
         self.quit_btn.pack(side="left", padx=5, pady=5)
@@ -158,12 +162,43 @@ class OpenBCIWebcamApp:
                     f"{gamma:.5f}"
                 ])
 
+    def toggle_screen_recording(self):
+        """Inicia ou para a gravação da tela"""
+        if not hasattr(self, "recording") or not self.recording:
+            self.recording = True
+            self.screen_thread = threading.Thread(target=self.record_screen)
+            self.screen_thread.start()
+            self.record_btn.config(text="Parar Gravação")
+        else:
+            self.recording = False
+            self.record_btn.config(text="Gravar Tela")
+    
+    def record_screen(self):
+        """Grava a tela do computador e salva em um arquivo AVI"""
+        fps = 10
+        screen_size = tuple(pyautogui.size())
+        codec = cv2.VideoWriter_fourcc(*"XVID")
+        video = cv2.VideoWriter("screen_record.avi", codec, fps, screen_size)
+
+        while self.recording:
+            frame = pyautogui.screenshot()
+            frame = np.array(frame)
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            video.write(frame)
+            time.sleep(1 / fps)
+
+        video.release()
+        print("Gravação de tela salva como 'screen_record.avi'")
+    
 
     def update_focus_widget(self):
         self.focus_text.config(text=f"Foco: {self.concentration:.2f} \nRelaxamento: {self.relaxation:.2f}")
 
     def on_close(self):
+        """Finaliza os processos e fecha a aplicação"""
         self.running = False
+        if hasattr(self, "recording") and self.recording:
+            self.recording = False  # Para a gravação da tela
         self.cap.release()
         self.csv_file.close()
         self.root.quit()
