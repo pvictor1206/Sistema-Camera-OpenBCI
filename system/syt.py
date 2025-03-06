@@ -34,14 +34,14 @@ class OpenBCIWebcamApp:
         self.quit_btn = ttk.Button(self.btn_frame, text="Sair", command=self.on_close)
         self.quit_btn.pack(side="left", padx=5, pady=5)
 
-        # **Indicador de Concentração**
+        # **Indicador de Concentração e Relaxamento**
         self.focus_frame = tk.Frame(self.main_frame, width=200, height=100, bg='lightgray', relief="ridge", bd=2)
         self.focus_frame.grid(row=0, column=1, padx=10, pady=10, sticky="nw")
 
-        self.focus_label = tk.Label(self.focus_frame, text="Concentracao", font=("Arial", 14, "bold"), bg="lightgray")
+        self.focus_label = tk.Label(self.focus_frame, text="Estado Mental", font=("Arial", 14, "bold"), bg="lightgray")
         self.focus_label.pack()
 
-        self.focus_text = tk.Label(self.focus_frame, text="Aguardando...", font=("Arial", 12), bg="lightgray")
+        self.focus_text = tk.Label(self.focus_frame, text="Foco: -- \nRelaxamento: --", font=("Arial", 12), bg="lightgray")
         self.focus_text.pack()
 
         # **Frame para exibir os dados EEG (Centro da tela)**
@@ -58,29 +58,33 @@ class OpenBCIWebcamApp:
         self.cam_label = tk.Label(self.cam_frame)
         self.cam_label.pack()
 
-        # **Inicialização da Câmera (sem gravação de vídeo)**
+        # **Inicialização da Câmera**
         self.cap = cv2.VideoCapture(0)
         self.running = False
 
-        # Variável de concentração
+        # Variáveis de concentração e relaxamento
         self.concentration = 0.0
+        self.relaxation = 0.0
 
         self.update_camera()
 
-        # **Configuração do OpenBCI** (dados vêm do servidor, então não usamos board localmente)
+        # **Configuração do OpenBCI** (dados vêm do servidor)
         self.board = None
 
-        # **Criar arquivo CSV para salvar os dados** (2 canais)
+        # **Criar arquivo CSV para salvar os dados**
         self.csv_file = open("eeg_data.csv", "w", newline="")
         self.csv_writer = csv.writer(self.csv_file)
-        # self.csv_writer.writerow(["Tempo", "Frame", "Channel1", "Channel2", "Concentracao"])
-        self.csv_writer.writerow(["Tempo", "Frame", "Delta", "Theta", "Alpha", "Beta", "Gamma", "Concentracao"])
+        self.csv_writer.writerow(["Tempo", "Frame", "Delta", "Theta", "Alpha", "Beta", "Gamma", "Concentracao", "Relaxamento"])
 
     def start_stream(self):
         if not self.running:
             self.running = True
-            # Removemos a chamada para iniciar a gravação do vídeo
             self.update_openbci()
+            
+    def update_openbci(self):
+        if self.running:
+            threading.Thread(target=self.fetch_openbci_data_thread).start()
+            self.root.after(1000, self.update_openbci)
 
     def stop_stream(self):
         if self.running:
@@ -94,16 +98,21 @@ class OpenBCIWebcamApp:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             timestamp_text = time.strftime('%H:%M:%S')
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            cv2.putText(frame_bgr, timestamp_text, (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            conc_text = f"Concentracao: {self.concentration:.2f}"
-            cv2.putText(frame_bgr, conc_text, (10, 70),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            
+            # Exibir tempo na tela
+            cv2.putText(frame_bgr, timestamp_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            
+            # Exibir concentração e relaxamento na tela
+            conc_text = f"Foco: {self.concentration:.2f}"
+            relax_text = f"Relaxamento: {self.relaxation:.2f}"
+            cv2.putText(frame_bgr, conc_text, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            cv2.putText(frame_bgr, relax_text, (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
             img = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
             imgtk = ImageTk.PhotoImage(image=img)
             self.cam_label.imgtk = imgtk
             self.cam_label.configure(image=imgtk)
-            # Aqui removemos a escrita em arquivo, pois não queremos gravar o vídeo
+
         self.root.after(33, self.update_camera)
 
     def fetch_openbci_data_thread(self):
@@ -126,31 +135,19 @@ class OpenBCIWebcamApp:
             else:
                 delta, theta, alpha, beta, gamma = bands[:5]
                 timestamp = time.strftime('%H:%M:%S')
+
                 self.text_output.insert(tk.END, f"\nTempo: {timestamp}\n")
-                self.text_output.insert(tk.END,
-                    f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n")
+                self.text_output.insert(tk.END, f"Delta: {delta:.5f} | Theta: {theta:.5f} | Alpha: {alpha:.5f} | Beta: {beta:.5f} | Gamma: {gamma:.5f}\n")
                 self.text_output.see(tk.END)
-                # Cálculo de concentração (exemplo)
-                focus_level = beta / max((alpha + theta + delta), 1e-6) # ja pega a concentração 0-100 (atenção (focus) e a meditação.)
-                '''
-                    Pegar a meditação: tem um criterio (tipo, se alpha tiver acima da metade, beta acima da contração)
-                '''
-                self.update_focus_widget(focus_level)
-                frame_number = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
-                #self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
-                self.csv_writer.writerow([timestamp, frame_number, delta, theta, alpha, beta, gamma, focus_level])
 
-        else:
-            self.text_output.insert(tk.END, f"⚠️ Erro: {data.get('message', 'Erro desconhecido')}\n")
+                self.concentration = beta / max((alpha + theta + delta), 1e-6)
+                self.relaxation = alpha / max((theta + delta), 1e-6)
 
-    def update_openbci(self):
-        if self.running:
-            threading.Thread(target=self.fetch_openbci_data_thread).start()
-            self.root.after(1000, self.update_openbci)
+                self.update_focus_widget()
+                self.csv_writer.writerow([timestamp, int(self.cap.get(cv2.CAP_PROP_POS_FRAMES)), delta, theta, alpha, beta, gamma, self.concentration, self.relaxation])
 
-    def update_focus_widget(self, focus_level):
-        self.focus_text.config(text=f"{focus_level:.2f}")
-        self.concentration = focus_level
+    def update_focus_widget(self):
+        self.focus_text.config(text=f"Foco: {self.concentration:.2f} \nRelaxamento: {self.relaxation:.2f}")
 
     def on_close(self):
         self.running = False
@@ -161,10 +158,7 @@ class OpenBCIWebcamApp:
         sys.exit(0)
 
 if __name__ == "__main__":
-    flask_thread = threading.Thread(target=run_server)
-    flask_thread.setDaemon(True)
-    flask_thread.start()
-
+    threading.Thread(target=run_server, daemon=True).start()
     root = tk.Tk()
     app = OpenBCIWebcamApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_close)
