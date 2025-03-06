@@ -74,7 +74,8 @@ class OpenBCIWebcamApp:
         # **Criar arquivo CSV para salvar os dados**
         self.csv_file = open("eeg_data.csv", "w", newline="")
         self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow(["Tempo", "Frame", "Delta", "Theta", "Alpha", "Beta", "Gamma", "Concentracao", "Relaxamento"])
+        # Atualizei a ordem das colunas:
+        self.csv_writer.writerow(["Tempo", "Concentracao", "Relaxamento", "Delta", "Theta", "Alpha", "Beta", "Gamma"])
 
     def start_stream(self):
         if not self.running:
@@ -144,7 +145,8 @@ class OpenBCIWebcamApp:
                 self.relaxation = alpha / (alpha + theta + delta)
 
                 self.update_focus_widget()
-                self.csv_writer.writerow([timestamp, int(self.cap.get(cv2.CAP_PROP_POS_FRAMES)), delta, theta, alpha, beta, gamma, self.concentration, self.relaxation])
+                # Atualizei a ordem das colunas no CSV:
+                self.csv_writer.writerow([timestamp, self.concentration, self.relaxation, delta, theta, alpha, beta, gamma])
 
     def update_focus_widget(self):
         self.focus_text.config(text=f"Foco: {self.concentration:.2f} \nRelaxamento: {self.relaxation:.2f}")
