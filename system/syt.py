@@ -84,7 +84,22 @@ class OpenBCIWebcamApp:
     def start_stream(self):
         if not self.running:
             self.running = True
+            self.start_video_recording()
             self.update_openbci()
+            
+    def start_video_recording(self):
+        """Inicia a gravação do vídeo da webcam"""
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        fps = 20
+        frame_size = (int(self.cap.get(3)), int(self.cap.get(4)))
+        self.video_writer = cv2.VideoWriter("video_webcan.avi", fourcc, fps, frame_size)
+    
+    def stop_video_recording(self):
+        """Finaliza a gravação do vídeo"""
+        if self.video_writer:
+            self.video_writer.release()  # Libera o vídeo
+            self.video_writer = None
+            print("📁 Vídeo salvo como video.avi")  # Mensagem de confirmação
             
     def update_openbci(self):
         if self.running:
@@ -117,6 +132,10 @@ class OpenBCIWebcamApp:
             imgtk = ImageTk.PhotoImage(image=img)
             self.cam_label.imgtk = imgtk
             self.cam_label.configure(image=imgtk)
+            
+            # **Grava o frame no vídeo se a gravação estiver ativa**
+            if self.running and self.video_writer:
+                self.video_writer.write(frame_bgr)  # Escreve o frame no arquivo de vídeo
 
         self.root.after(33, self.update_camera)
 
@@ -178,7 +197,7 @@ class OpenBCIWebcamApp:
         fps = 10
         screen_size = tuple(pyautogui.size())
         codec = cv2.VideoWriter_fourcc(*"XVID")
-        video = cv2.VideoWriter("screen_record.avi", codec, fps, screen_size)
+        video = cv2.VideoWriter("tela_completa.avi", codec, fps, screen_size)
 
         while self.recording:
             frame = pyautogui.screenshot()
