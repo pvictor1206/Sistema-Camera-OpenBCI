@@ -9,6 +9,11 @@ import time
 import sys
 import pyautogui
 
+from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels
+from brainflow.ml_model import MLModel, BrainFlowMetrics, BrainFlowClassifiers, BrainFlowModelParams
+from brainflow.data_filter import DataFilter, AggOperations
+
+
 # Importe a função que inicia o servidor Flask
 from server import run_server
 
@@ -166,6 +171,33 @@ class OpenBCIWebcamApp:
 
                 self.concentration = beta / (alpha + theta + delta + beta + gamma)
                 self.relaxation = alpha / (alpha + theta + delta)
+                '''
+                feature_vector = bands[0]
+                
+                # Modelo para calcular Mindfulness (Foco)
+                mindfulness_params = BrainFlowModelParams(BrainFlowMetrics.MINDFULNESS.value, BrainFlowClassifiers.DEFAULT_CLASSIFIER.value)
+                mindfulness = MLModel(mindfulness_params)
+                mindfulness.prepare()
+                focus = mindfulness.predict(feature_vector)
+                mindfulness.release()
+                
+                #mindfulness_params.file = "C:/Users/SEU_USUARIO/modelo_personalizado.onnx"
+                #mindfulness = MLModel(mindfulness_params)
+                #mindfulness.prepare()
+                #focus = mindfulness.predict(feature_vector)
+                #mindfulness.release()
+
+                # Modelo para calcular Restfulness (Relaxamento)
+                restfulness_params = BrainFlowModelParams(BrainFlowMetrics.RESTFULNESS.value, BrainFlowClassifiers.DEFAULT_CLASSIFIER.value)
+                restfulness = MLModel(restfulness_params)
+                restfulness.prepare()
+                relaxation = restfulness.predict(feature_vector)
+                restfulness.release()
+                
+                self.concentration = focus
+                self.relaxation = relaxation
+                '''
+                ##..
 
                 self.update_focus_widget()
                 
@@ -193,7 +225,7 @@ class OpenBCIWebcamApp:
             self.record_btn.config(text="Gravar Tela")
     
     def record_screen(self):
-        """Grava a tela do computador e salva em um arquivo AVI"""
+        """Grava a tela do computador e salva em um arquivo AVI com exibição do tempo."""
         fps = 10
         screen_size = tuple(pyautogui.size())
         codec = cv2.VideoWriter_fourcc(*"XVID")
@@ -203,11 +235,16 @@ class OpenBCIWebcamApp:
             frame = pyautogui.screenshot()
             frame = np.array(frame)
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+            # Adiciona o tempo na tela
+            timestamp_text = time.strftime('%H:%M:%S')
+            cv2.putText(frame, timestamp_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
             video.write(frame)
             time.sleep(1 / fps)
 
         video.release()
-        print("Gravação de tela salva como 'screen_record.avi'")
+        print("Gravação de tela salva como 'tela_completa.avi'")
     
 
     def update_focus_widget(self):

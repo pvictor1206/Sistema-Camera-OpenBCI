@@ -10,8 +10,8 @@ def initialize_board():
     params = BrainFlowInputParams()
     params.serial_port = "COM4"      # Substitua pela porta correta do seu dispositivo
     # Para conexão via serial não são necessários ip_address/ip_port.
-    #board_id = BoardIds.CYTON_BOARD
-    board_id = -1 
+    #board_id = BoardIds.CYTON_BOARD (0)
+    board_id = 0 
     try:
         board = BoardShim(board_id, params)
         time.sleep(5)  # Aguarda o dispositivo inicializar
