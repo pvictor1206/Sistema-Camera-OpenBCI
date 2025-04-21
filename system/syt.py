@@ -201,11 +201,11 @@ class OpenBCIWebcamApp:
 
                 self.update_focus_widget()
                 
-                # **Corrigido para escrever no CSV com apenas duas casas decimais**
+
                 self.csv_writer.writerow([
                     timestamp,
-                    f"{self.concentration:.2f}",  # Formata concentração para 2 casas decimais
-                    f"{self.relaxation:.2f}",     # Formata relaxamento para 2 casas decimais
+                    f"{self.concentration:.2f}",  
+                    f"{self.relaxation:.2f}",     
                     f"{delta:.5f}",
                     f"{theta:.5f}",
                     f"{alpha:.5f}",

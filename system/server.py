@@ -28,19 +28,19 @@ board = initialize_board()
 @app.route('/data', methods=['GET'])
 def get_eeg_data():
     """Captura dados do OpenBCI e retorna os valores das bandas (Delta, Theta, Alpha, Beta, Gamma) em formato JSON."""
-    try:
+    try: # Como os dados irão ser organizados / captados
         data = board.get_board_data()
         eeg_data = data[1:3, :]
         sampling_rate = BoardShim.get_sampling_rate(board.get_board_id())
-        band_powers = DataFilter.get_avg_band_powers(eeg_data, [0, 1], sampling_rate, True)
+        band_powers = DataFilter.get_avg_band_powers(eeg_data, [0, 1], sampling_rate, True) # Estuda a documentação
         # Verifica se o retorno é um número (erro); use np.issubdtype para capturar np.int32, etc.
         if np.issubdtype(type(band_powers), np.integer):
-            raise Exception("Erro ao calcular bandas: código " + str(band_powers))
+            raise Exception("Erro ao calcular bandas: código " + str(band_powers)) # estudar essa função
         if not hasattr(band_powers, '__len__'):
-            raise Exception("Retorno inesperado de get_avg_band_powers: " + str(band_powers))
+            raise Exception("Retorno inesperado de get_avg_band_powers: " + str(band_powers)) # estudar essa função
         bands = band_powers[0]
         if np.issubdtype(type(bands), np.integer) or not hasattr(bands, '__len__') or len(bands) < 5:
-            raise Exception("Formato inesperado dos valores de banda: " + str(bands))
+            raise Exception("Formato inesperado dos valores de banda: " + str(bands)) # estudar mais para explicar (pesquisar o formato especifico/ banda)
         response = {"status": "success", "data": bands.tolist()}
     except Exception as e:
         response = {"status": "error", "message": str(e)}
